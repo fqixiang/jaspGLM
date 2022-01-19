@@ -1,1 +1,1 @@
-# jaspModuleTemplate
+# jaspGLM
