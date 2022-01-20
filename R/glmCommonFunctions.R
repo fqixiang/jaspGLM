@@ -4,16 +4,9 @@
 # create GLM formula
 .createGLMFormula <- function(options, nullModel = FALSE) {
 
-  dependent <- options$dependent
+  leftTerm <- options$dependent
   modelTerms <- options$modelTerms
   includeIntercept <- options$includeIntercept
-
-  if (options$family == "binomialAgg") {
-    dependentAgg <- options$dependentAggregation
-    leftTerm <- paste("cbind(", dependent, ",", dependentAgg, ")", sep = "") }
-  else {
-    leftTerm <- dependent
-  }
 
   if (includeIntercept)
     rightTerms <- "1"
@@ -59,7 +52,7 @@
   ff <- .createGLMFormula(options, nullModel = FALSE)
   nf <- .createGLMFormula(options, nullModel = TRUE)
   # specify family and link
-  if (options$family == "binomialAgg")
+  if (options$family == "bernoulli")
     family <- "binomial"
   else
     family <- options$family

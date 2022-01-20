@@ -16,8 +16,8 @@
 #
 
 glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
-  if (options$family == "binomialAgg") {
-    ready <- (options$dependent != "" && options$dependentAggregation != "")
+  if (options$family == "binomial") {
+    ready <- (options$dependent != "" && options$weights != "")
 
   } else {
     ready <- options$dependent != ""
@@ -31,6 +31,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 
   #output tables
   .glmModelSummaryTable(jaspResults, dataset, options, ready)
+  .glmModelFitTable(jaspResults, dataset, options, ready)
   .glmEstimatesTable(jaspResults, dataset, options, ready)
 
   return()
@@ -49,18 +50,10 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
     dependentVar <- c(options$dependent)
     dependentVar <- dependentVar[dependentVar != ""]
 
-    if (options$family == "binomial") {
+    if (options$family == "bernoulli") {
       return(.readDataSetToEnd(columns.as.numeric  = numericVars,
                                columns.as.factor   = c(factorVars, dependentVar),
                                exclude.na.listwise = c(numericVars, factorVars, dependentVar)))
-    }
-    else if (options$family == "binomialAgg") {
-      dependentAggVar <- c(options$dependentAggregation)
-      dependentAggVar <- dependentAggVar[dependentAggVar != ""]
-
-      return(.readDataSetToEnd(columns.as.numeric  = c(numericVars, dependentVar, dependentAggVar),
-                               columns.as.factor   = factorVars,
-                               exclude.na.listwise = c(numericVars, factorVars, dependentVar, dependentAggVar)))
     }
     else {
       return(.readDataSetToEnd(columns.as.numeric  = c(numericVars, dependentVar),
@@ -92,36 +85,33 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                exitAnalysisIfErrors = TRUE)
 
   # check family-specific dependent variable errors
-  if (options$family == "binomial") {
+  if (options$family == "bernoulli") {
 
-    .hasErrors(dataset,
-               type = "factorLevels",
-               factorLevels.target  = options$dependent,
-               factorLevels.amount  = '!= 2',
-               exitAnalysisIfErrors = TRUE)
+    if (length(levels(dataset[, options$dependent])) != 2)
+      .quitAnalysis(gettextf("The %s family requires the dependent variable to be a factor with 2 levels.", options$family))
 
-  } else if (options$family == "binomialAgg") {
+  } else if (options$family == "binomial") {
 
-    if (any(dataset[, options$dependent] < 0) || any(!.is.wholenumber(dataset[, options$dependent])))
-      .quitAnalysis(gettextf("The %s family requires that the dependent variable is an integer.", options$family))
+    if (any(dataset[, options$dependent] < 0) || any(dataset[, options$dependent] > 1))
+      .quitAnalysis(gettextf("The %s family requires the dependent variable (i.e. proportion of successes) to be between 0 and 1 (inclusive).", options$family))
 
-    if (any(dataset[, options$dependentAggregation] < 0) || any(!.is.wholenumber(dataset[, options$dependentAggregation])))
-      .quitAnalysis(gettextf("The %s family requires that the number of trials variable is an integer.", options$family))
+    if (any(dataset[, options$weights] < 0) || any(!.is.wholenumber(dataset[, options$weights])))
+      .quitAnalysis(gettextf("The %s family requires the weights variable (i.e. total number of trials) to be an integer.", options$family))
 
   } else if (options$family %in% c("Gamma", "inverse.gaussian")) {
 
     if (any(dataset[, options$dependent] <= 0))
-      .quitAnalysis(gettextf("The %s family requires that the dependent variable is positive.", options$family))
+      .quitAnalysis(gettextf("The %s family requires the dependent variable to be positive.", options$family))
 
   } else if (options$family == "poisson") {
 
     if (any(dataset[, options$dependent] < 0 | any(!.is.wholenumber(dataset[, options$dependent]))))
-      .quitAnalysis(gettextf("The %s family requires that the dependent variable is an integer.", options$family))
+      .quitAnalysis(gettextf("The %s family requires the dependent variable to be an integer.", options$family))
 
   } else if (options$family == "gaussian") {
 
     if (!is.numeric(dataset[, options$dependent]))
-      .quitAnalysis(gettextf("The %s family requires that the dependent variable is a numerical variable.", options$family))
+      .quitAnalysis(gettextf("The %s family requires the dependent variable tp be a numerical variable.", options$family))
 
   }
 
@@ -149,6 +139,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   modelSummary$addColumnInfo(name = "dev", title = gettext("Deviance"), type = "number")
   modelSummary$addColumnInfo(name = "aic", title = gettext("AIC"),      type = "number", format="dp:3")
   modelSummary$addColumnInfo(name = "bic", title = gettext("BIC"),      type = "number", format="dp:3")
+  modelSummary$addColumnInfo(name = "dof", title = gettext("df"),       type = "integer")
 
   jaspResults[["modelSummary"]] <- modelSummary
   .glmModelSummaryTableFill(jaspResults, dataset, options, ready)
@@ -173,27 +164,88 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
       list(mod = "H\u2080",
            dev = glmModels[["nullModel"]][["deviance"]],
            aic = glmModels[["nullModel"]][["aic"]],
-           bic = BIC(glmModels[["nullModel"]])),
+           bic = BIC(glmModels[["nullModel"]]),
+           dof = glmModels[["nullModel"]][["df.residual"]]),
       list(mod = "H\u2081",
            dev = glmModels[["fullModel"]][["deviance"]],
            aic = glmModels[["fullModel"]][["aic"]],
-           bic = BIC(glmModels[["fullModel"]]))
+           bic = BIC(glmModels[["fullModel"]]),
+           dof = glmModels[["fullModel"]][["df.residual"]])
     )
   } else{
     rows <- list(
       list(mod = "H\u2080",
            dev = ".",
            aic = ".",
-           bic = "."),
+           bic = ".",
+           dof = "."),
       list(mod = "H\u2081",
            dev = ".",
            aic = ".",
-           bic = ".")
+           bic = ".",
+           dof = ".")
     )
   }
   jaspResults[["modelSummary"]]$addRows(rows)
 }
 
+# Model fit table
+.glmModelFitTable <- function(jaspResults, dataset, options, ready) {
+  if (!is.null(jaspResults[["modelFit"]]) || (!options$gofDeviance & !options$gofPearson)) {
+    return()
+  }
+
+  modelFitTable <- createJaspTable(gettext("Model Fit"))
+
+
+  modelFitTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
+                         options             = c("gofDeviance", "gofPearson"))
+
+  modelFitTable$position <- 2
+  modelFitTable$showSpecifiedColumnsOnly <- TRUE
+
+  modelFitTable$addColumnInfo(name = "gofType",   title = "",                    type = "string")
+  modelFitTable$addColumnInfo(name = "gof",       title = gettext("Statistic"),  type = "number", format="dp:3")
+  modelFitTable$addColumnInfo(name = "dof",       title = gettext("df"),         type = "integer")
+  modelFitTable$addColumnInfo(name = "pval",      title = gettext("p"),          type = "pvalue")
+
+  jaspResults[["modelFitTable"]] <- modelFitTable
+  .glmModelFitTableFill(jaspResults, dataset, options, ready)
+
+  return()
+}
+
+.glmModelFitTableFill <- function(jaspResults, dataset, options, ready) {
+  if (!ready)
+    return()
+
+  # compute glm models
+  glmModels <- .glmComputeModel(jaspResults, dataset, options)
+  modelObj  <- glmModels[["fullModel"]]
+
+  if (options$gofDeviance) {
+    jaspResults[["modelFitTable"]]$addRows(
+      list(gofType = "Deviance",
+           gof     = modelObj$deviance,
+           dof     = modelObj$df.residual,
+           pval    = pchisq(modelObj$deviance,
+                            df=modelObj$df.residual,
+                            lower.tail=FALSE))
+    )
+  }
+
+  if (options$gofPearson) {
+    pearson  <- sum(modelObj$weights * modelObj$residuals^2)
+    jaspResults[["modelFitTable"]]$addRows(
+      list(gofType = "Pearson",
+           gof     = pearson,
+           dof     = modelObj$df.residual,
+           pval    = pchisq(pearson,
+                            df=modelObj$df.residual,
+                            lower.tail=FALSE))
+    )
+  }
+}
 
 # GLM estimates table
 .glmEstimatesTable <- function(jaspResults, dataset, options, ready) {
@@ -202,15 +254,29 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 
   estimatesTable <- createJaspTable(gettext("Coefficients"))
   estimatesTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
-                          options             = c("coefEstimates"))
-  estimatesTable$position <- 2
+                          options             = c("coefEstimates", "coefCI", "coefCIInterval"))
+  estimatesTable$position <- 3
   estimatesTable$showSpecifiedColumnsOnly <- TRUE
 
-  estimatesTable$addColumnInfo(name = "param",   title = "", type = "string")
-  estimatesTable$addColumnInfo(name = "est",     title = gettext("Estimate"), type = "number", format="dp:3")
-  estimatesTable$addColumnInfo(name = "se",      title = gettext("Standard Error"), type = "number", format="dp:3")
-  estimatesTable$addColumnInfo(name = "zval",    title = gettext("z"), type = "number")
-  estimatesTable$addColumnInfo(name = "pval",    title = gettext("p"), type = "pvalue")
+  if (options$family %in% c("bernoulli", "binomial", "poisson"))
+    testStat <- "z"
+  else
+    testStat <- "t"
+
+  estimatesTable$addColumnInfo(name = "param",    title = "", type = "string")
+  estimatesTable$addColumnInfo(name = "est",      title = gettext("Estimate"), type = "number", format="dp:3")
+  estimatesTable$addColumnInfo(name = "se",       title = gettext("Standard Error"), type = "number", format="dp:3")
+  estimatesTable$addColumnInfo(name = "testStat", title = gettext(testStat), type = "number")
+  estimatesTable$addColumnInfo(name = "pval",     title = gettext("p"), type = "pvalue")
+
+  if (options$coefCI) {
+    ciPercentage <- options$coefCIInterval * 100
+    if (floor(ciPercentage) == ciPercentage)
+      ciPercentage <- as.integer(ciPercentage)
+    ciTitle <- paste(ciPercentage, " % ", "Confidence Interval",sep = "")
+    estimatesTable$addColumnInfo(name = "ciLow",    title = gettext("Lower Bound"), type = "number", format = "dp:3", overtitle = ciTitle)
+    estimatesTable$addColumnInfo(name = "ciUpp",    title = gettext("Upper Bound"), type = "number", format = "dp:3", overtitle = ciTitle)
+  }
 
   jaspResults[["estimatesTable"]] <- estimatesTable
   .glmEstimatesTableFill(jaspResults, dataset, options, ready)
@@ -224,27 +290,27 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   modelSummary <- summary(glmModels[["fullModel"]])[["coefficients"]]
   rowNames <- rownames(modelSummary)
 
-  if (length(rowNames) == 1) {
-    jaspResults[["estimatesTable"]]$addRows(
-      list(param = .formatTerm(rowNames, glmModels[["fullModel"]]),
-           est   = modelSummary[1, 1],
-           se    = modelSummary[1, 2],
-           zval  = modelSummary[1, 3],
-           pval  = modelSummary[1, 4])
-    )
+  if (options$coefCI) {
+    coefCISummary <- confint(glmModels[["fullModel"]], level = options$coefCIInterval)
   } else {
-    for (i in seq_along(rowNames)) {
-      jaspResults[["estimatesTable"]]$addRows(
-        list(param = .formatTerm(rowNames[i], glmModels[["fullModel"]]),
-             est   = modelSummary[i, 1],
-             se    = modelSummary[i, 2],
-             zval  = modelSummary[i, 3],
-             pval  = modelSummary[i, 4])
-      )
-    }
+    coefCISummary <- matrix(nrow = length(rowNames),
+                            ncol = 2,
+                            data = rep(0, length(rowNames)*2))
   }
 
-  if (options$family == "binomial") {
+  for (i in seq_along(rowNames)) {
+    jaspResults[["estimatesTable"]]$addRows(
+      list(param     = .formatTerm(rowNames[i], glmModels[["fullModel"]]),
+           est       = modelSummary[i, 1],
+           se        = modelSummary[i, 2],
+           testStat  = modelSummary[i, 3],
+           pval      = modelSummary[i, 4],
+           ciLow     = coefCISummary[i, 1],
+           ciUpp     = coefCISummary[i, 2])
+    )
+  }
+
+  if (options$family == "bernoulli") {
     dv      <- as.character(glmModels[["nullModel"]][["terms"]])[2]
     dvLevel <- levels(glmModels[["nullModel"]][["data"]][[dv]])[2]
 

@@ -44,18 +44,6 @@ Form {
 
         AssignedVariablesList
         {
-            visible:			family.currentText == "Binomial (aggregated)"
-            onVisibleChanged:	if (!visible && count > 0) itemDoubleClicked(0);
-            name:				"dependentAggregation"
-            title:				qsTr("Number of trials")
-            singleVariable:		true
-            allowedColumns:		["scale","ordinal"]
-
-            onEnabledChanged: if (!enabled && count > 0) itemDoubleClicked(0)
-        }
-
-        AssignedVariablesList
-        {
             name:				"covariates"
             title:				qsTr("Covariates")
             allowedColumns:		["ordinal", "scale"]
@@ -65,14 +53,14 @@ Form {
         {
             name:				"factors"
             title:				qsTr("Factors")
-            allowedColumns:		["ordinal", "nominal", "nominalText"]
+            allowedColumns:		["scale", "ordinal", "nominal", "nominalText"]
         }
 
         AssignedVariablesList
         {
             name:              "weights"
-            title:             qsTr("Weights (optional)")
-            allowedColumns:    ["scale"]
+            title:             qsTr("Weights")
+            allowedColumns:    ["ordinal", "scale"]
             singleVariable:    true
         }
     }
@@ -88,8 +76,8 @@ Form {
             indexDefaultValue:	0
             values:
             [
-                { label: qsTr("Binomial"),				value: "binomial"},
-                { label: qsTr("Binomial (aggregated)"),	value: "binomialAgg"},
+                { label: qsTr("Bernoulli"),				value: "bernoulli"},
+                { label: qsTr("Binomial"),	            value: "binomial"},
                 { label: qsTr("Gaussian"),				value: "gaussian"},
                 { label: qsTr("Gamma"),					value: "Gamma"},
                 { label: qsTr("Inverse Gaussian"),		value: "inverse.gaussian"},
@@ -98,8 +86,8 @@ Form {
 
             property var familyMap:
             {
-                "binomial":			["logit", "probit", "cauchit", "cloglog"],
-                "binomialAgg":      ["logit", "probit", "cauchit", "cloglog"],
+                "bernoulli":		["logit", "probit", "cauchit", "log", "cloglog"],
+                "binomial":         ["logit", "probit", "cauchit", "log", "cloglog"],
                 "gaussian":			["identity", "log", "inverse"],
                 "Gamma":			["identity", "log", "inverse"],
                 "inverse.gaussian":	["identity", "log", "inverse", "1/mu^2"],
@@ -108,8 +96,8 @@ Form {
 
             property var familyDefault:
             {
-                "binomial":			"logit",
-                "binomialAgg":		"logit",
+                "bernoulli":		"logit",
+                "binomial":		    "logit",
                 "gaussian":			"identity",
                 "Gamma":			"inverse",
                 "inverse.gaussian":	"1/mu^2",
@@ -238,8 +226,26 @@ Form {
 
         Group
         {
+            title: qsTr("Model Fit")
+            CheckBox {
+                name: "gofDeviance"; label: qsTr("Deviance goodness-of-fit test")
+            }
+            CheckBox {
+                name: "gofPearson"; label: qsTr("Pearson goodness-of-fit test")
+            }
+        }
+
+        Group
+        {
             title: qsTr("Parameter Estimates")
             CheckBox { name: "coefEstimates"; label: qsTr("Estimates"); checked: true }
+            CheckBox {
+                name: "coefCI"; label: qsTr("Confidence intervals")
+                childrenOnSameRow: true
+                CIField { name: "coefCIInterval"; }
+            }
         }
+
+
     }
 }
