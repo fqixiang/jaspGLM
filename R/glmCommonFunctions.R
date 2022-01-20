@@ -65,8 +65,20 @@
     family <- options$family
   familyLink <- eval(call(family, link = options$link))
   # compute full and null models
-  fullModel <- glm(ff, family = familyLink, data = dataset)
-  nullModel <- glm(nf, family = familyLink, data = dataset)
+  if (options$weights == "") {
+    fullModel <- glm(ff, family = familyLink, data = dataset, weights = NULL)
+    nullModel <- glm(nf, family = familyLink, data = dataset, weights = NULL)
+  } else {
+    fullModel <- glm(ff,
+                     family = familyLink,
+                     data = dataset,
+                     weights = get(options$weights))
+    nullModel <- glm(nf,
+                     family = familyLink,
+                     data = dataset,
+                     weights = get(options$weights))
+  }
+
   glmModels <- list("nullModel" = nullModel,
                     "fullModel" = fullModel)
   # combine both models

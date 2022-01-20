@@ -36,17 +36,17 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   return()
 }
 
-# Preprocessing functions
+# Function to read data
 .glmReadData <- function(dataset, options) {
   if (!is.null(dataset)) {
     return(dataset)
   }
   else {
-    numericVars  <- unlist(c(options$covariates, options$weights))
+    numericVars  <- c(options$covariates, options$weights)
     numericVars  <- numericVars[numericVars != ""]
-    factorVars   <- unlist(c(options$factors))
+    factorVars   <- c(options$factors)
     factorVars   <- factorVars[factorVars != ""]
-    dependentVar <- unlist(c(options$dependent))
+    dependentVar <- c(options$dependent)
     dependentVar <- dependentVar[dependentVar != ""]
 
     if (options$family == "binomial") {
@@ -55,7 +55,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                                exclude.na.listwise = c(numericVars, factorVars, dependentVar)))
     }
     else if (options$family == "binomialAgg") {
-      dependentAggVar <- unlist(c(options$dependentAggregation))
+      dependentAggVar <- c(options$dependentAggregation)
       dependentAggVar <- dependentAggVar[dependentAggVar != ""]
 
       return(.readDataSetToEnd(columns.as.numeric  = c(numericVars, dependentVar, dependentAggVar),
@@ -70,7 +70,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   }
 }
 
-# Check errors
+# Function to check errors when reading data
 .glmCheckDataErrors <- function(dataset, options){
 
   if (nrow(dataset) < length(c(options$covariates, options$factors)))
@@ -140,7 +140,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
     modelSummary <- createJaspTable(gettextf("Model Summary - %s", options[['dependent']]))
   }
 
-  dependList <- c("dependent", "family", "link", "modelTerms", "includeIntercept")
+  dependList <- c("dependent", "family", "link", "modelTerms", "includeIntercept", "weights")
   modelSummary$dependOn(dependList)
   modelSummary$position <- 1
   modelSummary$showSpecifiedColumnsOnly <- TRUE
