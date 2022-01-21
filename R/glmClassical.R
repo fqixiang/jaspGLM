@@ -15,6 +15,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+#still to do: multinomial, ordinal, negative binomial, quasi
+
 glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   if (options$family == "binomial") {
     ready <- (options$dependent != "" && options$weights != "")
@@ -77,12 +79,12 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                limits.max = Inf,
                exitAnalysisIfErrors = TRUE)
 
-  if (length(options$covariates) != 0)
-    .hasErrors(dataset,
-               type = c("observations", "infinity", "variance", "varCovData"),
-               all.target = options$covariates,
-               observations.amount  = "< 2",
-               exitAnalysisIfErrors = TRUE)
+#  if (length(options$covariates) != 0)
+#    .hasErrors(dataset,
+#               type = c("observations", "infinity", "variance", "varCovData"),
+#               all.target = options$covariates,
+#               observations.amount  = "< 2",
+#               exitAnalysisIfErrors = TRUE)
 
   # check family-specific dependent variable errors
   if (options$family == "bernoulli") {
@@ -140,6 +142,8 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   modelSummary$addColumnInfo(name = "aic", title = gettext("AIC"),      type = "number", format="dp:3")
   modelSummary$addColumnInfo(name = "bic", title = gettext("BIC"),      type = "number", format="dp:3")
   modelSummary$addColumnInfo(name = "dof", title = gettext("df"),       type = "integer")
+  modelSummary$addColumnInfo(name = "chi", title = "\u03A7\u00B2",      type = "number", format="dp:3")
+  modelSummary$addColumnInfo(name = "pvl", title = gettext("p"),        type = "pvalue")
 
   jaspResults[["modelSummary"]] <- modelSummary
   .glmModelSummaryTableFill(jaspResults, dataset, options, ready)
@@ -160,30 +164,52 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                           paste(terms, collapse = ", "))
       jaspResults[["modelSummary"]]$addFootnote(message)
     }
+    #log-likelihood ratio test to compare nested models (null vs full)
+    if (options$family %in% c("bernoulli", "binomial", "poisson")) {
+      testType <- "Chisq"
+      pvalName <- "Pr(>Chi)"
+    }
+
+    else {
+      testType <- "F"
+      pvalName <- "Pr(>F)"
+    }
+
+    anovaRes <- anova(glmModels[["nullModel"]], glmModels[["fullModel"]],
+                      test = testType)
+
     rows <- list(
       list(mod = "H\u2080",
            dev = glmModels[["nullModel"]][["deviance"]],
            aic = glmModels[["nullModel"]][["aic"]],
            bic = BIC(glmModels[["nullModel"]]),
-           dof = glmModels[["nullModel"]][["df.residual"]]),
+           dof = glmModels[["nullModel"]][["df.residual"]],
+           chi = "",
+           pvl = ""),
       list(mod = "H\u2081",
            dev = glmModels[["fullModel"]][["deviance"]],
            aic = glmModels[["fullModel"]][["aic"]],
            bic = BIC(glmModels[["fullModel"]]),
-           dof = glmModels[["fullModel"]][["df.residual"]])
+           dof = glmModels[["fullModel"]][["df.residual"]],
+           chi = anovaRes$Deviance[[2]],
+           pvl = anovaRes[[pvalName]][[2]])
     )
-  } else{
+  } else {
     rows <- list(
       list(mod = "H\u2080",
            dev = ".",
            aic = ".",
            bic = ".",
-           dof = "."),
+           dof = ".",
+           chi = ".",
+           pvl = "."),
       list(mod = "H\u2081",
            dev = ".",
            aic = ".",
            bic = ".",
-           dof = ".")
+           dof = ".",
+           chi = ".",
+           pvl = ".")
     )
   }
   jaspResults[["modelSummary"]]$addRows(rows)
