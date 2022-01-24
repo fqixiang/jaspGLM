@@ -17,6 +17,7 @@
 //
 
 import QtQuick			2.8
+import QtQuick.Layouts  1.3
 import JASP.Controls	1.0
 import JASP.Widgets		1.0
 import JASP				1.0
@@ -247,5 +248,113 @@ Form {
         }
 
 
+    }
+
+    Section
+    {
+        title: qsTr("Diagnostics")
+
+        Group
+        {
+            title: qsTr("Analysis of Residuals")
+            Layout.rowSpan: 3
+            Group
+            {
+                title: qsTr("Deviance Residuals")
+                CheckBox {
+                    name: "plotDevResVsY"; label: qsTr("Residuals vs. fitted")
+                }
+                CheckBox {
+                    name: "plotDevResVsX"; label: qsTr("Residuals vs. predictor")
+                }
+                CheckBox {
+                    name: "plotDevResQQ"; label: qsTr("Q-Q plot")
+                }
+            }
+
+            Group
+            {
+                title: qsTr("Pearson Residuals")
+                CheckBox {
+                    name: "plotPrsResVsY"; label: qsTr("Residiuals vs. fitted")
+                }
+                CheckBox {
+                    name: "plotPrsResVsX"; label: qsTr("Residuals vs. predictor")
+                }
+                CheckBox {
+                    name: "plotPrsResQQ"; label: qsTr("Q-Q plot")
+                }
+
+            }
+
+            Group
+            {
+                title: qsTr("Quantile Residuals")
+                CheckBox {
+                    name: "plotQuanResVsY"; label: qsTr("Residiuals vs. fitted")
+                }
+                CheckBox {
+                    name: "plotQuanResVsX"; label: qsTr("Residuals vs. predictor")
+                }
+                CheckBox {
+                    name: "plotQuanResQQ"; label: qsTr("Q-Q plot")
+                }
+            }
+
+            Group
+            {
+                title: qsTr("Other Plots")
+                CheckBox {
+                    name: "plotPartial"; label: qsTr("Partial residual plots")
+                }
+                CheckBox {
+                    name: "plotZVsEta"; label: qsTr("Working responses vs. linear predictor")
+                }
+            }
+        }
+
+        Group {
+            title: qsTr("Outliers")
+            CheckBox {
+                name: "tabOutlierQuan"; label: qsTr("Quantile residiuals - top")
+                childrenOnSameRow: true
+                IntegerField { name: "tabOutlierQuanTopN"; defaultValue: 3}
+            }
+            CheckBox {
+                name: "tabOutlierStd"; label: qsTr("Standarsized deviance residiuals - top")
+                childrenOnSameRow: true
+                IntegerField { name: "tabOutlierStdTopN"; defaultValue: 3}
+            }
+            CheckBox {
+                name: "tabOutlierStu"; label: qsTr("Studentized deviance residiuals - top")
+                childrenOnSameRow: true
+                IntegerField { name: "tabOutlierStuTopN"; defaultValue: 3}
+            }
+        }
+
+        Group {
+            title: qsTr("Influential Cases")
+            CheckBox {
+                name: "DFBETAS"; label: qsTr("DFBETAS")
+            }
+            CheckBox {
+                name: "DFFITS"; label: qsTr("DFFITS")
+            }
+            CheckBox {
+                name: "covRatio"; label: qsTr("Covariance ratio")
+            }
+            CheckBox {
+                name: "cooksD"; label: qsTr("Cook's distance")
+            }
+            CheckBox {
+                name: "leverage"; label: qsTr("Leverages")
+            }
+        }
+
+        Group {
+            title: qsTr("Multicollinearity")
+            CheckBox { name: "tolerance"; label: qsTr("Tolerance") }
+            CheckBox { name: "VIF"; label: qsTr("VIF") }
+        }
     }
 }
