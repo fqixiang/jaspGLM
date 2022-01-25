@@ -36,6 +36,16 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   .glmModelFitTable(jaspResults, dataset, options, ready)
   .glmEstimatesTable(jaspResults, dataset, options, ready)
 
+  #diagnostic tables and plots
+  .glmPlotResVsFitted(jaspResults, dataset, options, ready, position = 4)
+  .glmPlotResVsPredictor(jaspResults, dataset, options, ready, residType = "deviance", position = 5)
+  .glmPlotResVsPredictor(jaspResults, dataset, options, ready, residType = "Pearson", position = 6)
+  .glmPlotResVsPredictor(jaspResults, dataset, options, ready, residType = "quantile", position = 7)
+  .glmPlotResQQ(jaspResults, dataset, options, ready, position = 8)
+
+  .glmPlotResPartial(jaspResults, dataset, options, ready, position = 9)
+  .glmPlotZVsEta(jaspResults, dataset, options, ready, position = 10)
+
   return()
 }
 
@@ -342,4 +352,340 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 
     jaspResults[["estimatesTable"]]$addFootnote(gettextf("%1$s level '%2$s' coded as class 1.", dv, dvLevel))
   }
+}
+
+
+# Plots: Residuals vs. fitted
+.glmPlotResVsFitted <- function(jaspResults, dataset, options, ready, position = 4) {
+  if (!ready)
+    return()
+
+  plotNames <- c("plotDevResVsY", "plotPrsResVsY", "plotQuanResVsY")
+  residNames <- c("deviance", "Pearson", "quantile")
+
+  glmPlotResVsFittedContainer <- createJaspContainer(gettext("Residuals vs. Fitted Plots"))
+  glmPlotResVsFittedContainer$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                                       options           = plotNames)
+  glmPlotResVsFittedContainer$position <- position
+  jaspResults[["glmPlotResVsFitted"]] <- glmPlotResVsFittedContainer
+
+
+  if (!is.null(jaspResults[["glmModels"]])) {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    for (i in 1:length(plotNames)) {
+      if (options[[plotNames[[i]]]]) {
+        .glmCreatePlotPlaceholder(glmPlotResVsFittedContainer,
+                                  index = plotNames[[i]],
+                                  title = gettextf("Standardized %1s residuals vs. fitted values", residNames[[i]]))
+
+        .glmInsertPlot(glmPlotResVsFittedContainer[[plotNames[[i]]]],
+                       .glmFillPlotResVsFitted,
+                       residType = residNames[[i]],
+                       model = glmFullModel,
+                       family = options$family)
+      }
+    }
+  }
+  return()
+}
+
+.glmFillPlotResVsFitted <- function(residType, model, family) {
+
+  # compute residuals and fitted values
+  stdResid <- .glmStdResidCompute(model = model, residType = residType)
+  fittedY  <- fitted(model)
+
+  # decide on constant-information scale transformations of fitted values
+  fittedY  <- .constInfoTransform(family, fittedY)
+  xlabText <- .constInfoTransName(family)
+
+
+  # make plot
+  thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
+                             data = data.frame(y = stdResid,
+                                               x = fittedY)) +
+    ggplot2::geom_point(size  = 4,
+                        shape = 1) +
+    ggplot2::xlab(expression()) +
+    ggplot2::ylab(gettextf("Standardized %1s residual", residType)) +
+    ggplot2::geom_smooth(se = FALSE,
+                         size = 0.6,
+                         method = "loess",
+                         method.args = list(degree = 1, family = "symmetric")) +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::themeJaspRaw()
+
+  return(thePlot)
+}
+
+
+
+# Plots: Residuals vs. predictor
+.glmPlotResVsPredictor <- function(jaspResults, dataset, options, ready, residType, position) {
+  if (!ready)
+    return()
+
+  plotType <- switch(residType,
+                     "deviance" = "plotDevResVsX",
+                     "Pearson"  = "plotPrsResVsX",
+                     "quantile" = "plotQuanResVsX")
+
+  if (!options[[plotType]])
+    return()
+
+  predictors <- c(options$covariates, options$factors)
+
+  glmPlotResVsPredictorContainer <- createJaspContainer(gettextf("%1s Residuals vs. Predictor Plots", .capitalize(residType)))
+  glmPlotResVsPredictorContainer$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                                          options           = plotType)
+  glmPlotResVsPredictorContainer$position <- position
+  jaspResults[[plotType]] <- glmPlotResVsPredictorContainer
+
+
+  if (!is.null(jaspResults[["glmModels"]])) {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    for (predictor in predictors) {
+        .glmCreatePlotPlaceholder(glmPlotResVsPredictorContainer,
+                                  index = predictor,
+                                  title = gettextf("Standardized %1s residuals vs. %2s", residType, predictor))
+
+        .glmInsertPlot(glmPlotResVsPredictorContainer[[predictor]],
+                       .glmFillPlotResVsPredictor,
+                       residType = residType,
+                       predictor = predictor,
+                       model = glmFullModel,
+                       options = options)
+    }
+  }
+  return()
+}
+
+.glmFillPlotResVsPredictor <- function(residType, predictor, model, options) {
+
+  # compute residuals
+  stdResid <- .glmStdResidCompute(model = model, residType = residType)
+  # get predictor values
+  if (predictor %in% options$factors) {
+    predictorVec <- factor(model$data[[predictor]])
+  } else {
+    predictorVec <- model$data[[predictor]]
+  }
+
+  # make plot
+  d <- data.frame(y = stdResid,
+                  x = predictorVec)
+  if (is.factor(predictorVec)) {
+    thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
+                               data = d) +
+      ggplot2::geom_boxplot() +
+      ggplot2::geom_point(size  = 4,
+                          shape = 1) +
+      ggplot2::xlab(gettext(predictor)) +
+      ggplot2::ylab(gettextf("Standardized %1s residual", residType)) +
+      jaspGraphs::geom_rangeframe() +
+      jaspGraphs::themeJaspRaw()
+  } else {
+    thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
+                               data = d) +
+      ggplot2::geom_point(size  = 4,
+                          shape = 1) +
+      ggplot2::geom_smooth(se = FALSE,
+                           size = 0.6,
+                           method = "loess",
+                           method.args = list(degree = 1, family = "symmetric")) +
+      ggplot2::xlab(gettext(predictor)) +
+      ggplot2::ylab(gettextf("Standardized %1s residual", residType)) +
+      jaspGraphs::geom_rangeframe() +
+      jaspGraphs::themeJaspRaw()
+  }
+  return(thePlot)
+}
+
+
+
+# Plots: Residuals Q-Q
+.glmPlotResQQ <- function(jaspResults, dataset, options, ready, position) {
+  if (!ready)
+    return()
+
+  plotNames <- c("plotDevResQQ", "plotPrsResQQ", "plotQuanResQQ")
+  residNames <- c("deviance", "Pearson", "quantile")
+
+  glmPlotResQQContainer <- createJaspContainer(gettext("Normal Q-Q Plots: Standardized Residuals"))
+  glmPlotResQQContainer$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                                 options           = plotNames)
+  glmPlotResQQContainer$position <- position
+  jaspResults[["glmPlotResQQ"]] <- glmPlotResQQContainer
+
+
+  if (!is.null(jaspResults[["glmModels"]])) {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    for (i in 1:length(plotNames)) {
+      if (options[[plotNames[[i]]]]) {
+        .glmCreatePlotPlaceholder(glmPlotResQQContainer,
+                                  index = plotNames[[i]],
+                                  title = gettextf("Normal Q-Q plot: Standardized %1s residuals", residNames[[i]]))
+
+        .glmInsertPlot(glmPlotResQQContainer[[plotNames[[i]]]],
+                       .glmFillPlotResQQ,
+                       residType = residNames[[i]],
+                       model = glmFullModel,
+                       family = options$family)
+      }
+    }
+  }
+  return()
+}
+
+.glmFillPlotResQQ <- function(residType, model, family) {
+
+  # compute residuals
+  stdResid <- .glmStdResidCompute(model = model, residType = residType)
+
+  # make plot
+  thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(sample = y),
+                             data = data.frame(y = stdResid)) +
+    ggplot2::stat_qq(shape = 1,
+                     size = 4) +
+    ggplot2::stat_qq_line() +
+    ggplot2::xlab(gettext("Theoretical Quantiles")) +
+    ggplot2::ylab(gettext("Sample Quantiles")) +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::themeJaspRaw()
+
+  return(thePlot)
+}
+
+
+# Plots: Partial residuals
+.glmPlotResPartial <- function(jaspResults, dataset, options, ready, position) {
+  if (!ready)
+    return()
+
+  if (!options[["plotPartial"]])
+    return()
+
+  predictors <- c(options$covariates, options$factors)
+
+  glmPlotResPartialContainer <- createJaspContainer(gettext("Partial Residual Plots"))
+  glmPlotResPartialContainer$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                                      options           = "plotPartial")
+  glmPlotResPartialContainer$position <- position
+  jaspResults[["plotPartial"]] <- glmPlotResPartialContainer
+
+
+  if (!is.null(jaspResults[["glmModels"]])) {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    for (predictor in predictors) {
+      .glmCreatePlotPlaceholder(glmPlotResPartialContainer,
+                                index = predictor,
+                                title = gettextf("Partial residual plot for %1s", predictor))
+
+      .glmInsertPlot(glmPlotResPartialContainer[[predictor]],
+                     .glmFillPlotResPartial,
+                     predictor = predictor,
+                     model = glmFullModel,
+                     options = options)
+    }
+  }
+  return()
+}
+
+.glmFillPlotResPartial <- function(predictor, model, options) {
+
+  # compute residuals
+  partResidDf <- as.data.frame(resid(model, type = "partial"))
+  partResid   <- partResidDf[[predictor]]
+
+  # get original predictor values
+  if (predictor %in% options$factors) {
+    predictorVec <- factor(model$data[[predictor]])
+  } else {
+    predictorVec <- model$data[[predictor]]
+  }
+
+  # make plot
+  d <- data.frame(y = partResid,
+                  x = predictorVec)
+  if (is.factor(predictorVec)) {
+    thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
+                               data = d) +
+      ggplot2::geom_boxplot() +
+      ggplot2::geom_point(size  = 4,
+                          shape = 1) +
+      ggplot2::xlab(gettext(predictor)) +
+      ggplot2::ylab(gettextf("Partial residual for %1s", predictor)) +
+      jaspGraphs::geom_rangeframe() +
+      jaspGraphs::themeJaspRaw()
+  } else {
+    thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
+                               data = d) +
+      ggplot2::geom_point(size  = 4,
+                          shape = 1) +
+      ggplot2::geom_smooth(se = FALSE,
+                           size = 0.6,
+                           method = "loess",
+                           method.args = list(degree = 1, family = "symmetric")) +
+      ggplot2::xlab(gettext(predictor)) +
+      ggplot2::ylab(gettextf("Partial residual for %1s", predictor)) +
+      jaspGraphs::geom_rangeframe() +
+      jaspGraphs::themeJaspRaw()
+  }
+  return(thePlot)
+}
+
+
+
+# Plot: Working responses vs. linear predictor
+.glmPlotZVsEta <- function(jaspResults, dataset, options, ready, position) {
+  if (!ready)
+    return()
+
+  if (!options[["plotZVsEta"]])
+    return()
+
+  glmPlotZVsEtaContainer <- createJaspContainer(gettext("Plot: Working responses vs. linear predictor"))
+  glmPlotZVsEtaContainer$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                                  options           = "plotZVsEta")
+  glmPlotZVsEtaContainer$position <- position
+  jaspResults[["glmPlotZVsEta"]] <- glmPlotZVsEtaContainer
+
+  if (!is.null(jaspResults[["glmModels"]])) {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    .glmCreatePlotPlaceholder(glmPlotZVsEtaContainer,
+                              index = "glmPlotZVsEta",
+                              title = gettext("Plot: Working responses vs. linear predictor"))
+
+    .glmInsertPlot(glmPlotZVsEtaContainer[["glmPlotZVsEta"]],
+                   .glmFillPlotZVsEta,
+                   model = glmFullModel,
+                   options = options)
+  }
+  return()
+}
+
+.glmFillPlotZVsEta <- function(model, options) {
+
+  # compute linear predictor eta and working responses z
+  eta <- model[["linear.predictors"]]
+  z <- resid(model, type="working") + eta
+
+  # make plot
+  xlabText <-
+  thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x,
+                                                    y = y),
+                             data = data.frame(x = z,
+                                               y = eta)) +
+    ggplot2::geom_point(size  = 4,
+                        shape = 1) +
+    ggplot2::geom_smooth(se = FALSE,
+                         size = 0.6,
+                         method = "loess",
+                         method.args = list(degree = 1, family = "symmetric")) +
+    ggplot2::xlab(gettext("Working responses, z")) +
+    ggplot2::ylab(expression(paste("Linear predictor, ", hat(eta)))) +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::themeJaspRaw()
+
+  return(thePlot)
 }

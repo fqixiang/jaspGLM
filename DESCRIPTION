@@ -11,7 +11,9 @@ License: GPL (>= 2)
 Encoding: UTF-8
 Imports:
   jaspBase,
-  jaspGraphs
+  jaspGraphs,
+  ggplot2,
+  statmod
 Suggests:
   testthat
 Remotes:

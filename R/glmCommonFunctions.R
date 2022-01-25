@@ -75,8 +75,10 @@
   glmModels <- list("nullModel" = nullModel,
                     "fullModel" = fullModel)
   # combine both models
-  jaspResults[["glmModels"]] <- createJaspState(glmModels)
+  jaspResults[["glmModels"]] <- createJaspState()
   jaspResults[["glmModels"]]$dependOn(optionsFromObject = jaspResults[["modelSummary"]])
+  jaspResults[["glmModels"]]$object <- glmModels
+
   return(glmModels)
 
 }
@@ -115,4 +117,70 @@
   col2 <- paste(unlist(col), collapse = " * ")
 
   return(col2)
+}
+
+
+.glmCreatePlotPlaceholder <- function(container, index, title) {
+  jaspPlot            <- createJaspPlot(title = title)
+  jaspPlot$status     <- "running"
+  container[[index]]  <- jaspPlot
+  return()
+}
+
+
+.glmStdResidCompute <- function(model, residType) {
+  if (residType == "deviance") {
+    stdResid <- rstandard(model)
+  }
+  else if (residType == "Pearson") {
+    phiEst <- summary(model)[["dispersion"]]
+    resid <- resid(model, type="pearson")
+    stdResid <- resid / sqrt(phiEst * (1 - hatvalues(model)))
+  }
+  else if (residType == "quantile") {
+    set.seed(123)
+    resid <- statmod::qresid(model)
+    stdResid <- resid / sqrt(1 - hatvalues(model))
+  } else {
+    stdResid <- NULL
+  }
+
+  return(stdResid)
+}
+
+.glmInsertPlot <- function(jaspPlot, func, ...) {
+  p <- try(func(...))
+
+  if (inherits(p, "try-error")) {
+    errorMessage <- .extractErrorMessage(p)
+    jaspPlot$setError(gettextf("Plotting is not possible: %s", errorMessage))
+  } else {
+    jaspPlot$plotObject <- p
+    jaspPlot$status     <- "complete"
+  }
+}
+
+.constInfoTransform <- function(family, x) {
+  switch(family,
+         "bernoulli" = 1/(sin(sqrt(x))),
+         "binomial" = 1/(sin(sqrt(x))),
+         "poisson" = sqrt(x),
+         "Gamma" = log(x),
+         "inverse.gaussian" = 1/sqrt(x),
+         "gaussian" = x)
+}
+
+.constInfoTransName <- function(family) {
+  switch(family,
+         "bernoulli" = expression(sin^-1 * sqrt("Fitted values")),
+         "binomial" = expression(sin^-1 * sqrt("Fitted values")),
+         "poisson" = expression(sqrt("Fitted values")),
+         "Gamma" = expression(log("Fitted values")),
+         "inverse.gaussian" = expression(1/sqrt("Fitted Values")),
+         "gaussian" = "Fitted values")
+}
+
+.capitalize <- function(x) {
+  x_new <- paste(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)), sep="")
+  return(x_new)
 }

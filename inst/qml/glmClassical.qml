@@ -276,7 +276,7 @@ Form {
             {
                 title: qsTr("Pearson Residuals")
                 CheckBox {
-                    name: "plotPrsResVsY"; label: qsTr("Residiuals vs. fitted")
+                    name: "plotPrsResVsY"; label: qsTr("Residuals vs. fitted")
                 }
                 CheckBox {
                     name: "plotPrsResVsX"; label: qsTr("Residuals vs. predictor")
@@ -291,7 +291,7 @@ Form {
             {
                 title: qsTr("Quantile Residuals")
                 CheckBox {
-                    name: "plotQuanResVsY"; label: qsTr("Residiuals vs. fitted")
+                    name: "plotQuanResVsY"; label: qsTr("Residuals vs. fitted")
                 }
                 CheckBox {
                     name: "plotQuanResVsX"; label: qsTr("Residuals vs. predictor")
@@ -316,17 +316,17 @@ Form {
         Group {
             title: qsTr("Outliers")
             CheckBox {
-                name: "tabOutlierQuan"; label: qsTr("Quantile residiuals - top")
+                name: "tabOutlierQuan"; label: qsTr("Standardized quantile residuals: top")
                 childrenOnSameRow: true
                 IntegerField { name: "tabOutlierQuanTopN"; defaultValue: 3}
             }
             CheckBox {
-                name: "tabOutlierStd"; label: qsTr("Standarsized deviance residiuals - top")
+                name: "tabOutlierStd"; label: qsTr("Standardized deviance residuals: top")
                 childrenOnSameRow: true
                 IntegerField { name: "tabOutlierStdTopN"; defaultValue: 3}
             }
             CheckBox {
-                name: "tabOutlierStu"; label: qsTr("Studentized deviance residiuals - top")
+                name: "tabOutlierStu"; label: qsTr("Studentized deviance residuals: top")
                 childrenOnSameRow: true
                 IntegerField { name: "tabOutlierStuTopN"; defaultValue: 3}
             }
