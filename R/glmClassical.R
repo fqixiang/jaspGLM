@@ -802,7 +802,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
           dfbetasName  <- gettextf("DFBETAS_%1s", predictor)
           colNameList <- c(colNameList, dfbetasName)
           if (predictor == "(Intercept)")
-            dfbetasTitle <- gettext("Intercept")
+            dfbetasTitle <- gettext("DFBETAS:Intercept")
           else
             dfbetasTitle <- gettextf("DFBETAS:%1s", gsub(":", "*", predictor))
           jaspResults[["influenceTable"]]$addColumnInfo(name = dfbetasName, title = dfbetasTitle, type = "number", format="dp:3")
@@ -892,7 +892,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 }
 
 .glmMulticolliTableFill <- function(jaspResults, dataset, options, ready, glmObj) {
-  vif_obj       <- car::vif(glmObj)
+  vif_obj       <- .vif.default(glmObj)
 
   if (is.matrix(vif_obj)) {
     var_names     <- rownames(vif_obj)
