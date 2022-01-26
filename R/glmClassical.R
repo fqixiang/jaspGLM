@@ -32,19 +32,29 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   }
 
   #output tables
-  .glmModelSummaryTable(jaspResults, dataset, options, ready)
-  .glmModelFitTable(jaspResults, dataset, options, ready)
-  .glmEstimatesTable(jaspResults, dataset, options, ready)
+  .glmModelSummaryTable(jaspResults, dataset, options, ready, position = 1)
+  .glmModelFitTable(    jaspResults, dataset, options, ready, position = 2)
+  .glmEstimatesTable(   jaspResults, dataset, options, ready, position = 3)
 
   #diagnostic tables and plots
   .glmPlotResVsFitted(jaspResults, dataset, options, ready, position = 4)
+
   .glmPlotResVsPredictor(jaspResults, dataset, options, ready, residType = "deviance", position = 5)
   .glmPlotResVsPredictor(jaspResults, dataset, options, ready, residType = "Pearson", position = 6)
   .glmPlotResVsPredictor(jaspResults, dataset, options, ready, residType = "quantile", position = 7)
+
   .glmPlotResQQ(jaspResults, dataset, options, ready, position = 8)
 
   .glmPlotResPartial(jaspResults, dataset, options, ready, position = 9)
+
   .glmPlotZVsEta(jaspResults, dataset, options, ready, position = 10)
+
+  .glmOutlierTable(jaspResults, dataset, options, ready, position = 11, residType = "quantile")
+  .glmOutlierTable(jaspResults, dataset, options, ready, position = 11, residType = "standardized deviance")
+  .glmOutlierTable(jaspResults, dataset, options, ready, position = 11, residType = "studentized deviance")
+
+  .glmInfluenceTable(jaspResults, dataset, options, ready, position = 12)
+  .glmMulticolliTable(jaspResults, dataset, options, ready, position = 13)
 
   return()
 }
@@ -130,7 +140,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 }
 
 # Model Summary Table
-.glmModelSummaryTable <- function(jaspResults, dataset, options, ready) {
+.glmModelSummaryTable <- function(jaspResults, dataset, options, ready, position) {
   if (!is.null(jaspResults[["modelSummary"]])) {
     return()
   }
@@ -144,7 +154,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 
   dependList <- c("dependent", "family", "link", "modelTerms", "includeIntercept", "weights")
   modelSummary$dependOn(dependList)
-  modelSummary$position <- 1
+  modelSummary$position <- position
   modelSummary$showSpecifiedColumnsOnly <- TRUE
 
   modelSummary$addColumnInfo(name = "mod", title = gettext("Model"),    type = "string")
@@ -206,27 +216,15 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
     )
   } else {
     rows <- list(
-      list(mod = "H\u2080",
-           dev = ".",
-           aic = ".",
-           bic = ".",
-           dof = ".",
-           chi = ".",
-           pvl = "."),
-      list(mod = "H\u2081",
-           dev = ".",
-           aic = ".",
-           bic = ".",
-           dof = ".",
-           chi = ".",
-           pvl = ".")
+      list(mod = "H\u2080"),
+      list(mod = "H\u2081")
     )
   }
   jaspResults[["modelSummary"]]$addRows(rows)
 }
 
 # Model fit table
-.glmModelFitTable <- function(jaspResults, dataset, options, ready) {
+.glmModelFitTable <- function(jaspResults, dataset, options, ready, position) {
   if (!is.null(jaspResults[["modelFit"]]) || (!options$gofDeviance & !options$gofPearson)) {
     return()
   }
@@ -237,7 +235,7 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   modelFitTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
                          options             = c("gofDeviance", "gofPearson"))
 
-  modelFitTable$position <- 2
+  modelFitTable$position <- position
   modelFitTable$showSpecifiedColumnsOnly <- TRUE
 
   modelFitTable$addColumnInfo(name = "gofType",   title = "",                    type = "string")
@@ -284,14 +282,14 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 }
 
 # GLM estimates table
-.glmEstimatesTable <- function(jaspResults, dataset, options, ready) {
+.glmEstimatesTable <- function(jaspResults, dataset, options, ready, position) {
   if (!options$coefEstimates || !is.null(jaspResults[["estimatesTable"]]))
     return()
 
   estimatesTable <- createJaspTable(gettext("Coefficients"))
   estimatesTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
                           options             = c("coefEstimates", "coefCI", "coefCIInterval"))
-  estimatesTable$position <- 3
+  estimatesTable$position <- position
   estimatesTable$showSpecifiedColumnsOnly <- TRUE
 
   if (options$family %in% c("bernoulli", "binomial", "poisson"))
@@ -688,4 +686,230 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
     jaspGraphs::themeJaspRaw()
 
   return(thePlot)
+}
+
+
+
+# Table: GLM outliers
+.glmOutlierTable <- function(jaspResults, dataset, options, ready, position, residType) {
+
+  optionName <- switch(residType,
+                       "quantile"              = "tabOutlierQuan",
+                       "standardized deviance" = "tabOutlierStd",
+                       "studentized deviance"  = "tabOutlierStu")
+
+  optionTopN <- switch(residType,
+                       "quantile"              = "tabOutlierQuanTopN",
+                       "standardized deviance" = "tabOutlierStdTopN",
+                       "studentized deviance"  = "tabOutlierStuTopN")
+
+  if (!options[[optionName]] || !ready)
+    return()
+
+  if (is.null(jaspResults[["outlierTables"]])) {
+    glmOutlierTablesContainer <- createJaspContainer(gettext("Outliers Tables"))
+    glmOutlierTablesContainer$dependOn(optionsFromObject = jaspResults[["modelSummary"]])
+    glmOutlierTablesContainer$position <- position
+    jaspResults[["outlierTables"]]     <- glmOutlierTablesContainer
+  }
+
+  outlierTable <- createJaspTable(gettextf("Table: Top n outliers based on %1s residuals", residType))
+  outlierTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
+                        options             = c(optionName, optionTopN))
+  outlierTable$showSpecifiedColumnsOnly <- TRUE
+
+  outlierTable$addColumnInfo(name = "caseN",      title = gettext("Case Number"), type = "integer")
+  outlierTable$addColumnInfo(name = "residScore", title = gettext("Residual"),    type = "number", format="dp:3")
+
+  jaspResults[["outlierTables"]][[optionName]] <- outlierTable
+  topN <- options[[optionTopN]]
+  .glmOutlierTableFill(jaspResults, dataset, options, ready, residType, optionName, topN)
+}
+
+.glmOutlierTableFill <- function(jaspResults, dataset, options, ready, residType, optionName, topN) {
+  if (!ready)
+    return()
+
+  if (!is.null(jaspResults[["glmModels"]])) {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    set.seed(123)
+    residVec       <- switch(residType,
+                             "quantile" =  statmod::qresid(glmFullModel),
+                             "standardized deviance" = rstandard(glmFullModel),
+                             "studentized deviance"  = rstudent(glmFullModel))
+    residDf <- data.frame(caseN       = seq.int(length(residVec)),
+                          residScore  = residVec)
+    residRankedDf <- residDf[order(abs(residVec), decreasing = TRUE), ]
+
+    for (i in 1:topN) {
+      jaspResults[["outlierTables"]][[optionName]]$addRows(
+        list(caseN = residRankedDf[i, "caseN"],
+             residScore = residRankedDf[i, "residScore"])
+      )
+    }
+  }
+}
+
+
+# Table: Influential cases
+.glmInfluenceTable <- function(jaspResults, dataset, options, ready, position) {
+
+  tableOptionsOn <- c(options[["DFBETAS"]],
+                      options[["DFFITS"]],
+                      options[["covRatio"]],
+                      options[["cooksD"]],
+                      options[["leverage"]])
+
+
+  if (!ready | !any(tableOptionsOn))
+    return()
+
+
+  tableOptions <- c("DFBETAS", "DFFITS", "covRatio", "cooksD", "leverage")
+  tableOptionsClicked <- tableOptions[tableOptionsOn]
+
+  if (is.null(jaspResults[["influenceTable"]])) {
+    influenceTable <- createJaspTable(gettext("Table: Influential Cases"))
+    influenceTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
+                            options             = tableOptions)
+    influenceTable$position <- position
+    influenceTable$showSpecifiedColumnsOnly <- TRUE
+    jaspResults[["influenceTable"]] <- influenceTable
+  }
+
+  tableOptionToColName <- function(x) {
+    switch(x,
+           "DFBETAS"  = "DFBETAS",
+           "DFFITS"   = "DFFITS",
+           "covRatio" = "Covariance Ratio",
+           "cooksD"   = "Cook's Distance",
+           "leverage" = "Leverage")
+  }
+
+  if (is.null(jaspResults[["glmModels"]])) {
+    for (option in tableOptionsClicked) {
+        colTitle    <- tableOptionToColName(option)
+        jaspResults[["influenceTable"]]$addColumnInfo(name = option, title = gettext(colTitle), type = "number", format="dp:3")
+    }
+  } else {
+    glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+    colNameList  <- c()
+    jaspResults[["influenceTable"]]$addColumnInfo(name = "caseN", title = "Case Number", type = "integer")
+    for (option in tableOptionsClicked) {
+      if (option == "DFBETAS") {
+        predictors <- names(glmFullModel$coefficients)
+        for (predictor in predictors) {
+          dfbetasName  <- gettextf("DFBETAS_%1s", predictor)
+          colNameList <- c(colNameList, dfbetasName)
+          if (predictor == "(Intercept)")
+            dfbetasTitle <- gettext("Intercept")
+          else
+            dfbetasTitle <- gettextf("DFBETAS:%1s", gsub(":", "*", predictor))
+          jaspResults[["influenceTable"]]$addColumnInfo(name = dfbetasName, title = dfbetasTitle, type = "number", format="dp:3")
+        }
+      } else {
+        colNameList <- c(colNameList, option)
+        colTitle    <- tableOptionToColName(option)
+        jaspResults[["influenceTable"]]$addColumnInfo(name = option, title = gettext(colTitle), type = "number", format="dp:3")
+      }
+    }
+    .glmInfluenceTableFill(jaspResults, dataset, options, ready, model = glmFullModel, influenceMeasures = tableOptionsClicked, colNames = colNameList)
+  }
+}
+
+.glmInfluenceTableFill <- function(jaspResults, dataset, options, ready, model, influenceMeasures, colNames) {
+  influenceRes <- influence.measures(model)
+  nDFBETAS     <- length(names(model$coefficients))
+
+  optionToColInd <- function(x, nDFBETAS) {
+    switch(x,
+           "DFBETAS"  = 1:nDFBETAS,
+           "DFFITS"   = (nDFBETAS+1),
+           "covRatio" = (nDFBETAS+2),
+           "cooksD"   = (nDFBETAS+3),
+           "leverage" = (nDFBETAS+4))}
+
+  colInd <- c()
+  for (measure in influenceMeasures) {
+    colInd <- c(colInd, optionToColInd(measure, nDFBETAS))
+  }
+
+  influenceResData      <- as.data.frame(influenceRes[["infmat"]][, colInd])
+  names(influenceResData) <- colNames
+  caseN <- seq.int(nrow(influenceResData))
+  influenceResData <- cbind(caseN, influenceResData)
+
+  influenceResSig       <- influenceRes[["is.inf"]][, colInd]
+
+  if (length(colInd) > 1) {
+    influenceResDataFinal <- influenceResData[rowSums(influenceResSig) > 0, , drop = FALSE]
+  } else {
+    influenceResDataFinal <- influenceResData[influenceResSig > 0, , drop = FALSE]
+  }
+
+  nRowInfluential <- nrow(influenceResDataFinal)
+
+  if (nRowInfluential == 0)
+    jaspResults[["influenceTable"]]$addFootnote(gettext("No influential cases found."))
+  else {
+    jaspResults[["influenceTable"]]$setData(influenceResDataFinal)
+  }
+}
+
+# Table: Multicollinearity
+.glmMulticolliTable <- function(jaspResults, dataset, options, ready, position) {
+
+  tableOptionsOn <- c(options[["tolerance"]],
+                      options[["VIF"]])
+
+  if (!ready | !any(tableOptionsOn))
+    return()
+
+  if (is.null(jaspResults[["multicolliTable"]])) {
+    multicolliTable <- createJaspTable(gettext("Multicollinearity Diagnostics"))
+    multicolliTable$dependOn(optionsFromObject   = jaspResults[["modelSummary"]],
+                             options             = c("tolerance", "VIF"))
+    multicolliTable$position <- position
+    multicolliTable$showSpecifiedColumnsOnly <- TRUE
+    jaspResults[["multicolliTable"]] <- multicolliTable
+  }
+
+
+  jaspResults[["multicolliTable"]]$addColumnInfo(name = "var", title = gettext(""), type = "string")
+
+  if (is.null(jaspResults[["glmModels"]]))
+    return()
+
+  if (options[["tolerance"]])
+    jaspResults[["multicolliTable"]]$addColumnInfo(name = "tolerance", title = gettext("Tolerance"), type = "number")
+
+  if (options[["VIF"]])
+    jaspResults[["multicolliTable"]]$addColumnInfo(name = "VIF", title = gettext("VIF"), type = "number")
+
+  glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+  .glmMulticolliTableFill(jaspResults, dataset, options, ready, glmObj = glmFullModel)
+
+}
+
+.glmMulticolliTableFill <- function(jaspResults, dataset, options, ready, glmObj) {
+  vif_obj       <- car::vif(glmObj)
+
+  if (is.matrix(vif_obj)) {
+    var_names     <- rownames(vif_obj)
+    n_var         <- length(var_names)
+    vif_vec       <- vif_obj[,1]
+    tolerance_vec <- 1/vif_vec
+  }
+  else {
+    var_names     <- names(vif_obj)
+    n_var         <- length(var_names)
+    vif_vec       <- vif_obj
+    tolerance_vec <- 1/vif_vec
+  }
+
+  for (i in 1:n_var) {
+    jaspResults[["multicolliTable"]]$addRows(list(var       = var_names[[i]],
+                                                  tolerance = tolerance_vec[[i]],
+                                                  VIF       = vif_vec[[i]]))
+  }
 }
