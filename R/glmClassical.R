@@ -355,10 +355,11 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 
 # Plots: Residuals vs. fitted
 .glmPlotResVsFitted <- function(jaspResults, dataset, options, ready, position = 4) {
-  if (!ready)
-    return()
 
   plotNames <- c("plotDevResVsY", "plotPrsResVsY", "plotQuanResVsY")
+  if (!ready || !any(unlist(options[plotNames])))
+    return()
+
   residNames <- c("deviance", "Pearson", "quantile")
 
   glmPlotResVsFittedContainer <- createJaspContainer(gettext("Residuals vs. Fitted Plots"))
@@ -503,10 +504,11 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
 
 # Plots: Residuals Q-Q
 .glmPlotResQQ <- function(jaspResults, dataset, options, ready, position) {
-  if (!ready)
-    return()
 
   plotNames <- c("plotDevResQQ", "plotPrsResQQ", "plotQuanResQQ")
+  if (!ready || !any(unlist(options[plotNames])))
+    return()
+
   residNames <- c("deviance", "Pearson", "quantile")
 
   glmPlotResQQContainer <- createJaspContainer(gettext("Normal Q-Q Plots: Standardized Residuals"))
