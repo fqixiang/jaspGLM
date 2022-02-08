@@ -25,6 +25,13 @@ import JASP				1.0
 // All Analysis forms must be built with the From QML item
 Form {
     id: form
+    function updateWeightsTitle() {
+        if (family.currentText == "Binomial")
+        {title = qsTr("Total Number of Trials")}
+        else
+        {title = qsTr("Weights")}
+        return title
+    }
 
     VariablesForm
     {
@@ -60,7 +67,7 @@ Form {
         AssignedVariablesList
         {
             name:              "weights"
-            title:             qsTr("Weights")
+            title:             updateWeightsTitle();
             allowedColumns:    ["ordinal", "scale"]
             singleVariable:    true
         }
