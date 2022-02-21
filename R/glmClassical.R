@@ -398,6 +398,12 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   fittedY  <- .constInfoTransform(family, fittedY)
   xlabText <- .constInfoTransName(family)
 
+  # breaks and limits for pretty plots
+  xBreaks <- pretty(fittedY)
+  xLimits <- range(xBreaks)
+
+  yBreaks <- pretty(stdResid)
+  yLimits <- range(yBreaks)
 
   # make plot
   thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
@@ -405,12 +411,14 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                                                x = fittedY)) +
     ggplot2::geom_point(size  = 4,
                         shape = 1) +
-    ggplot2::xlab(expression()) +
+    ggplot2::xlab(xlabText) +
     ggplot2::ylab(gettextf("Standardized %1s residual", residType)) +
     ggplot2::geom_smooth(se = FALSE,
                          size = 0.6,
                          method = "loess",
                          method.args = list(degree = 1, family = "symmetric")) +
+    ggplot2::scale_y_continuous(breaks = yBreaks, limits = yLimits) +
+    ggplot2::scale_x_continuous(breaks = xBreaks, limits = xLimits) +
     jaspGraphs::geom_rangeframe() +
     jaspGraphs::themeJaspRaw()
 
@@ -473,6 +481,10 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   # make plot
   d <- data.frame(y = stdResid,
                   x = predictorVec)
+
+  yBreaks <- pretty(stdResid) #note that the breaks and limits work for y axis too
+  yLimits <- range(yBreaks)
+
   if (is.factor(predictorVec)) {
     thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
                                data = d) +
@@ -481,9 +493,12 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                           shape = 1) +
       ggplot2::xlab(gettext(predictor)) +
       ggplot2::ylab(gettextf("Standardized %1s residual", residType)) +
+      ggplot2::scale_y_continuous(breaks = yBreaks, limits = yLimits) +
       jaspGraphs::geom_rangeframe() +
       jaspGraphs::themeJaspRaw()
   } else {
+    xBreaks <- pretty(predictorVec)
+    xLimits <- range(xBreaks)
     thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
                                data = d) +
       ggplot2::geom_point(size  = 4,
@@ -494,6 +509,8 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                            method.args = list(degree = 1, family = "symmetric")) +
       ggplot2::xlab(gettext(predictor)) +
       ggplot2::ylab(gettextf("Standardized %1s residual", residType)) +
+      ggplot2::scale_x_continuous(breaks = xBreaks, limits = xLimits) +
+      ggplot2::scale_y_continuous(breaks = yBreaks, limits = yLimits) +
       jaspGraphs::geom_rangeframe() +
       jaspGraphs::themeJaspRaw()
   }
@@ -543,6 +560,8 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   stdResid <- .glmStdResidCompute(model = model, residType = residType)
 
   # make plot
+  xBreaks <- pretty(stdResid) #note that the breaks and limits work for y axis too
+  xLimits <- range(xBreaks)
   thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(sample = y),
                              data = data.frame(y = stdResid)) +
     ggplot2::stat_qq(shape = 1,
@@ -550,6 +569,8 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
     ggplot2::stat_qq_line() +
     ggplot2::xlab(gettext("Theoretical Quantiles")) +
     ggplot2::ylab(gettext("Sample Quantiles")) +
+    ggplot2::scale_x_continuous(breaks = xBreaks, limits = xLimits) +
+    ggplot2::scale_y_continuous(breaks = xBreaks, limits = xLimits) +
     jaspGraphs::geom_rangeframe() +
     jaspGraphs::themeJaspRaw()
 
@@ -597,6 +618,9 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   partResidDf <- as.data.frame(resid(model, type = "partial"))
   partResid   <- partResidDf[[predictor]]
 
+  yBreaks <- pretty(partResid)
+  yLimits <- range(yBreaks)
+
   # get original predictor values
   if (predictor %in% options$factors) {
     predictorVec <- factor(model$data[[predictor]])
@@ -615,9 +639,12 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                           shape = 1) +
       ggplot2::xlab(gettext(predictor)) +
       ggplot2::ylab(gettextf("Partial residual for %1s", predictor)) +
+      ggplot2::scale_y_continuous(breaks = yBreaks, limits = yLimits) +
       jaspGraphs::geom_rangeframe() +
       jaspGraphs::themeJaspRaw()
   } else {
+    xBreaks <- pretty(predictorVec)
+    xLimits <- range(xBreaks)
     thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x, y = y),
                                data = d) +
       ggplot2::geom_point(size  = 4,
@@ -628,6 +655,8 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                            method.args = list(degree = 1, family = "symmetric")) +
       ggplot2::xlab(gettext(predictor)) +
       ggplot2::ylab(gettextf("Partial residual for %1s", predictor)) +
+      ggplot2::scale_x_continuous(breaks = xBreaks, limits = xLimits) +
+      ggplot2::scale_y_continuous(breaks = yBreaks, limits = yLimits) +
       jaspGraphs::geom_rangeframe() +
       jaspGraphs::themeJaspRaw()
   }
@@ -671,7 +700,11 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   z <- resid(model, type="working") + eta
 
   # make plot
-  xlabText <-
+  xBreaks <- pretty(z)
+  xLimits <- range(xBreaks)
+  yBreaks <- pretty(eta)
+  yLimits <- range(yBreaks)
+
   thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = x,
                                                     y = y),
                              data = data.frame(x = z,
@@ -684,6 +717,8 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                          method.args = list(degree = 1, family = "symmetric")) +
     ggplot2::xlab(gettext("Working responses, z")) +
     ggplot2::ylab(expression(paste("Linear predictor, ", hat(eta)))) +
+    ggplot2::scale_x_continuous(breaks = xBreaks, limits = xLimits) +
+    ggplot2::scale_y_continuous(breaks = yBreaks, limits = yLimits) +
     jaspGraphs::geom_rangeframe() +
     jaspGraphs::themeJaspRaw()
 

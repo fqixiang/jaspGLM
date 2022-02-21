@@ -321,7 +321,7 @@ Form {
         }
 
         Group {
-            title: qsTr("Outliers")
+            title: qsTr("Show Outliers")
             CheckBox {
                 name: "tabOutlierQuan"; label: qsTr("Standardized quantile residuals: top")
                 childrenOnSameRow: true
@@ -340,7 +340,7 @@ Form {
         }
 
         Group {
-            title: qsTr("Influential Cases")
+            title: qsTr("Show Influential Cases")
             CheckBox {
                 name: "DFBETAS"; label: qsTr("DFBETAS")
             }
