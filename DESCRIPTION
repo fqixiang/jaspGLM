@@ -13,7 +13,8 @@ Imports:
   jaspBase,
   jaspGraphs,
   ggplot2,
-  statmod
+  statmod,
+  emmeans
 Suggests:
   testthat
 Remotes:

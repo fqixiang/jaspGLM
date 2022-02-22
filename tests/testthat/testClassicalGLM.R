@@ -1,5 +1,8 @@
 # jaspTools::testAll()
 
+context("Classical GLM Unit Testing")
+#if you don't specify this, you get error saying "Error in (function (x) : attempt to apply non-function"
+
 #### Test the binomial distribution with different links ####
 # Specifically, the model coefficients, based on the GLM book (Dunn and Smyth, 2018) (page 337)
 test_that("Binomial regression results match", {
@@ -235,6 +238,43 @@ test_that("Multicollinearity table matches", {
                                       "contOutlier", 0.9743, 1.026,
                                       "facFive",     0.9377, 1.066))})
 
+# estimated marginal means table and contrast table
+test_that("Estimated marginal means table matches", {
+  options <- analysisOptions("glmClassical")
+
+  options$family <- "bernoulli"
+  options$link   <- "logit"
+  options$covariates <- c("contNormal", "contOutlier")
+  options$factors <- c("facFive")
+  options$dependent <- "facGender"
+
+  options$modelTerms <- list(
+    list(components="contNormal",    isNuisance=FALSE),
+    list(components="contOutlier",   isNuisance=FALSE),
+    list(components="facFive", isNuisance=FALSE)
+  )
+
+  options$marginalMeansVars <- c("contNormal")
+  options$marginalMeansCompare <- TRUE
+  options$marginalMeansCompareTo <- 0
+
+  options$marginalMeansContrast <- TRUE
+  options$Contrasts <- list(list(isContrast = FALSE, levels = c("1", "2", "3"), name = "contNormal", values = c("-1", "0", "1")),
+                            list(isContrast = TRUE,  levels = c("1", "2", "3"), name = "Contrast 1", values = c("1", "0", "-1")))
+
+  results <- jaspTools::runAnalysis("glmClassical", "debug.csv", options)
+
+  EMMtable <- results[["results"]][["EMMsummary"]][["data"]]
+  jaspTools::expect_equal_tables(EMMtable,
+                                 list(-1.247,  0.3772, 0.0723, 0.2489, 0.5254, -1.630, 0.1031, 1,
+                                      -0.1887, 0.5023, 0.052,  0.4017, 0.6026, 0.0436, 0.9652, 2,
+                                      0.8697,  0.6271, 0.0752, 0.4723, 0.7596, 1.615,  0.1063, 3))
+
+  contrastsTable <- results[["results"]][["contrastsTable"]][["data"]]
+  jaspTools::expect_equal_tables(contrastsTable,
+                                 list("Contrast 1",  -0.2499, 0.1108, Inf, -2.255, 0.0242))
+
+  })
 
 # test error handling
 test_that("Input error handling", {

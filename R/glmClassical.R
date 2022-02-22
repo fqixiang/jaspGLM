@@ -56,6 +56,12 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   .glmInfluenceTable(jaspResults, dataset, options, ready, position = 12)
   .glmMulticolliTable(jaspResults, dataset, options, ready, position = 13)
 
+  #estimated marginal means table
+  .glmMarginalMeansTable(jaspResults, dataset, options, ready, position = 14)
+
+  #contrast analysis
+  .glmContrastsTable(jaspResults, dataset, options, ready, position = 15)
+
   return()
 }
 
@@ -950,3 +956,241 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
                                                   VIF       = vif_vec[[i]]))
   }
 }
+
+
+# Estimated marginal means
+.glmMarginalMeansTable <- function(jaspResults, dataset, options, ready, position) {
+
+  if (!ready | (length(options$marginalMeansVars) == 0))
+    return()
+
+  if (!is.null(jaspResults[["EMMresults"]]))
+    return()
+
+  if (is.null(jaspResults[["glmModels"]]))
+    return()
+
+  glmFullModel <- jaspResults[["glmModels"]][["object"]][["fullModel"]]
+
+  # deal with continuous predictors
+  at <- NULL
+  for (var in unlist(options$marginalMeansVars)) {
+    if (var %in% options$covariates) {
+      at[[var]] <- c(mean(dataset[, var], na.rm = TRUE) + c(-1, 0, 1) * options$marginalMeansSD * sd(dataset[, var], na.rm = TRUE))
+    }
+  }
+
+  # compute the results
+  emm <- emmeans::emmeans(
+    object  = glmFullModel,
+    specs   = unlist(options$marginalMeansVars),
+    at      = at,
+    options = list(level  = options$marginalMeansCIwidth),
+    type    = if (options$marginalMeansResponse) "response"
+  )
+
+  emmTable  <- as.data.frame(emm)
+  if (options$marginalMeansCompare)
+    emmTest <- as.data.frame(emmeans::test(emm, null = options$marginalMeansCompareTo))
+
+  EMMsummary <- createJaspTable(title = gettext("Estimated Marginal Means"))
+  EMMresults <- createJaspState()
+
+  EMMsummary$position <- position
+
+  EMMdependencies <- c("marginalMeansVars",
+                       "marginalMeansCIwidth",
+                       "marginalMeansSD",
+                       "marginalMeansCompare",
+                       "marginalMeansCompareTo",
+                       "marginalMeansResponse")
+
+  EMMsummary$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                      options           = EMMdependencies)
+  EMMresults$dependOn(optionsFromObject = jaspResults[["modelSummary"]],
+                      options           = EMMdependencies)
+
+
+  for (variable in unlist(options$marginalMeansVars)) {
+    if (variable %in% options$covariates)
+      EMMsummary$addColumnInfo(name = variable, title = variable, type = "number")
+    else
+      EMMsummary$addColumnInfo(name = variable, title = variable, type = "string")
+
+  }
+
+  EMMsummary$addColumnInfo(name = "estimate", title = gettext("Estimate"), type = "number")
+  EMMsummary$addColumnInfo(name = "se",       title = gettext("SE"),       type = "number")
+
+  EMMsummary$addColumnInfo(name = "lowerCI",  title = gettext("Lower"),    type = "number", overtitle = gettextf("%s%% CI", 100 * options$marginalMeansCIwidth))
+  EMMsummary$addColumnInfo(name = "upperCI",  title = gettext("Upper"),    type = "number", overtitle = gettextf("%s%% CI", 100 * options$marginalMeansCIwidth))
+
+  if (options$marginalMeansCompare) {
+    EMMsummary$addColumnInfo(name = "stat",   title = ifelse(colnames(emmTest)[ncol(emmTest) - 1] == "t.ratio", gettext("t"), gettext("z")), type = "number")
+    EMMsummary$addColumnInfo(name = "pval",   title = gettext("p"),         type = "pvalue")
+    EMMsummary$addFootnote(.EMMmessageTestNull(options$marginalMeansCompareTo), colNames = "pval")
+  }
+
+  jaspResults[["EMMsummary"]] <- EMMsummary
+
+  for (i in 1:nrow(emmTable)) {
+    tempRow <- list()
+
+    if (options$marginalMeansContrast)
+      tempRow$Level <- i
+
+
+    for (variable in unlist(options$marginalMeansVars)) {
+
+      if (variable %in% options$covariates)
+        tempRow[variable] <- emmTable[i, variable]
+      else
+        tempRow[variable] <- as.character(emmTable[i, variable])
+
+    }
+
+    # the estimate is before SE (names change for GLM)
+    tempRow$estimate <- emmTable[i, grep("SE", colnames(emmTable)) - 1]
+    tempRow$se       <- emmTable[i, "SE"]
+
+    if (options$marginalMeansCompare) {
+      tempRow$stat <- emmTest[i, grep("ratio", colnames(emmTest))]
+      tempRow$pval <- emmTest[i, "p.value"]
+    }
+
+    tempRow$lowerCI  <- emmTable[i, ncol(emmTable) - 1]
+    tempRow$upperCI  <- emmTable[i, ncol(emmTable)]
+
+    EMMsummary$addRows(tempRow)
+  }
+
+  if (length(emm@misc$avgd.over) != 0)
+    EMMsummary$addFootnote(.EMMmessageAveragedOver(emm@misc$avgd.over))
+
+  # add warning message
+  EMMsummary$addFootnote(ifelse(options$marginalMeansResponse,
+                                gettext("Results are on the response scale."),
+                                gettext("Results are not on the response scale and might be misleading.")))
+
+  object <- list(
+    emm        = emm,
+    emmTable   = emmTable
+  )
+
+  EMMresults$object <- object
+  jaspResults[["EMMresults"]] <- EMMresults
+
+  return()
+}
+
+# Contrast analysis
+.glmContrastsTable <- function(jaspResults, dataset, options, ready, position) {
+
+
+  if (!ready | (length(options$marginalMeansVars) == 0) | !options$marginalMeansContrast)
+    return()
+
+  if (!is.null(jaspResults[["contrastsTable"]]))
+    return()
+
+  if (is.null(jaspResults[["EMMresults"]]))
+    return()
+
+  emm       <- jaspResults[["EMMresults"]]$object$emm
+  emmTable  <- jaspResults[["EMMresults"]]$object$emmTable
+
+
+  EMMCsummary <- createJaspTable(title = gettext("Contrasts"))
+
+  EMMCsummary$position <- position
+
+  EMMCsummary$dependOn(optionsFromObject = jaspResults[["EMMresults"]],
+                       options           = c("Contrasts", "EMMpAdjustment"))
+
+
+  EMMCsummary$addColumnInfo(name = "contrast", title = "",                  type = "string")
+  EMMCsummary$addColumnInfo(name = "estimate", title = gettext("Estimate"), type = "number")
+  EMMCsummary$addColumnInfo(name = "se",       title = gettext("SE"),       type = "number")
+  EMMCsummary$addColumnInfo(name = "df",       title = gettext("df"),       type = "number")
+  EMMCsummary$addColumnInfo(name = "stat",     title = gettext("z"),        type = "number")
+  EMMCsummary$addColumnInfo(name = "pval",     title = gettext("p"),        type = "pvalue")
+
+  # Columns have been specified, show to user
+  jaspResults[["contrastsTable"]] <- EMMCsummary
+
+  selectedContrasts        <- options$Contrasts
+  selectedPvalueAdjustment <- options$EMMpAdjustment
+
+  selectedResponse         <- options$marginalMeansResponse
+
+
+  contrs <- list()
+  for (cont in selectedContrasts[sapply(selectedContrasts, function(x) x$isContrast)]) {
+
+    if (all(cont$values == 0))
+      next
+
+    contrs[[cont$name]] <- unname(sapply(cont$values, function(x) eval(parse(text = x))))
+
+  }
+
+  if (length(contrs) == 0)
+    return()
+
+  # take care of the scale
+  if (selectedResponse) {
+    emmContrast <- try(
+      as.data.frame(
+        emmeans::contrast(
+          emmeans::regrid(emm),
+          contrs,
+          adjust = selectedPvalueAdjustment
+        )
+      )) }
+
+  if (jaspBase::isTryError(emmContrast)) {
+    EMMCsummary$setError(emmContrast)
+    return()
+  }
+
+  # fix the title name if there is a t-stats
+  if (colnames(emmContrast)[5] == "t.ratio")
+    EMMCsummary$setColumnTitle("stat", gettext("t"))
+
+  tempEstName <- colnames(emmContrast)[ncol(emmContrast) - 4]
+
+  if (tempEstName == "odds.ratio")
+    EMMCsummary$setColumnTitle("estimate", gettext("Odds Ratio"))
+  else if (tempEstName == "ratio")
+    EMMCsummary$setColumnTitle("estimate", gettext("Ratio"))
+  else if (tempEstName == "estimate")
+    EMMCsummary$setColumnTitle("estimate", gettext("Estimate"))
+  else
+    EMMCsummary$setColumnTitle("estimate", tempEstName)
+
+
+  for (i in 1:nrow(emmContrast)) {
+
+    tempRow <- list(
+      contrast =  names(contrs)[i],
+      estimate =  emmContrast[i, ncol(emmContrast) - 4],
+      se       =  emmContrast[i, "SE"],
+      df       =  emmContrast[i, "df"],
+      stat     =  emmContrast[i, ncol(emmContrast) - 1],
+      pval     =  emmContrast[i, "p.value"]
+    )
+
+    EMMCsummary$addFootnote(.messagePvalAdjustment(selectedPvalueAdjustment), colNames = "pval")
+
+    if (!selectedResponse)
+      EMMCsummary$addFootnote(gettext("Results are on the response scale."))
+    else
+      EMMCsummary$addFootnote(gettext("Results are not on the response scale and might be misleading."))
+
+
+    EMMCsummary$addRows(tempRow)
+  }
+
+  return()
+}
+

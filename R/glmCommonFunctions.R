@@ -214,3 +214,26 @@
   else result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
   result
 }
+
+# message for estimated marginal means table
+.EMMmessageTestNull     <- function(value)  gettextf("P-values correspond to test of null hypothesis against %s.", value)
+.EMMmessageAveragedOver <- function(terms)  gettextf("Results are averaged over the levels of: %s.",paste(terms, collapse = ", "))
+.messagePvalAdjustment  <- function(adjustment) {
+  if (adjustment == "none") {
+    return(gettext("P-values are not adjusted."))
+  }
+  adjustment <- switch(adjustment,
+                       "holm"       = gettext("Holm"),
+                       "hommel"     = gettext("Homel"),
+                       "hochberg"   = gettext("Hochberg"),
+                       "mvt"        = gettext("Multivariate-t"),
+                       "tukey"      = gettext("Tukey"),
+                       "BH"         = gettext("Benjamini-Hochberg"),
+                       "BY"         = gettext("Benjamini-Yekutieli"),
+                       "scheffe"    = gettext("Scheffé"),
+                       "sidak"      = gettext("Sidak"),
+                       "dunnettx"   = gettext("Dunnett"),
+                       "bonferroni" = gettext("Bonferroni")
+  )
+  return(gettextf("P-values are adjusted using %s adjustment.",adjustment))
+}

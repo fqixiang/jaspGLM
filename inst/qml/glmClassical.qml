@@ -364,4 +364,106 @@ Form {
             CheckBox { name: "VIF"; label: qsTr("VIF") }
         }
     }
+
+    Section
+    {
+        title:		qsTr("Estimated Marginal Means and Contrast Analysis")
+        expanded:	false
+
+        VariablesForm
+        {
+            preferredHeight:	jaspTheme.smallDefaultVariablesFormHeight
+
+            AvailableVariablesList
+            {
+                name:	"availableModelComponentsMeans"
+                title:	qsTr("Model variables")
+                source: [{ name: "covariates", use: "noInteraction" }, { name: "factors", use: "noInteraction" }]
+            }
+
+            AssignedVariablesList
+            {
+                id:		marginalMeansVars
+                name:	"marginalMeansVars"
+                title:	qsTr("Selected variables")
+            }
+        }
+
+
+        CheckBox {
+            name: "marginalMeansCI"; label: qsTr("Confidence interval")
+            childrenOnSameRow: true
+            CIField { name: "marginalMeansCIwidth"; }
+        }
+
+        DoubleField
+        {
+            id:				marginalMeansSD
+            name:			"marginalMeansSD"
+            label:			qsTr("Levels of covariates at mean +/- ")
+            defaultValue: 	1
+            min:			0
+            enabled:		marginalMeansVars.columnsTypes.includes("scale")
+            afterLabel:     "SD"
+        }
+
+        Group
+        {
+            columns: 2
+
+            CheckBox
+            {
+                name:	"marginalMeansCompare"
+                id:		marginalMeansCompare
+                label:	qsTr("Compare marginal means to:")
+            }
+
+            DoubleField
+            {
+                enabled:	marginalMeansCompare.checked
+                name:		"marginalMeansCompareTo"
+            }
+        }
+
+        CheckBox
+        {
+            name: "marginalMeansResponse"
+            label: qsTr("Use response scale")
+            checked: true
+        }
+
+        CheckBox
+        {
+            name:	"marginalMeansContrast"
+            id:		marginalMeansContrast
+            label:	qsTr("Specify contrasts")
+        }
+
+        DropDown
+        {
+            name:	"EMMpAdjustment"
+            label:	qsTr("P-value adjustment")
+            values:
+            [
+                { label: "Holm",					value: "holm"},
+                { label: qsTr("Multivariate-t"),	value: "mvt"},
+                { label: "Scheffé",					value: "scheffe"},
+                { label: "Tukey",					value: "tukey"},
+                { label: qsTr("None"),				value: "none"},
+                { label: "Bonferroni",				value: "bonferroni"},
+                { label: "Hommel",					value: "hommel"}
+            ]
+            enabled:			marginalMeansContrast.checked
+        }
+
+        CustomContrastsTableView
+        {
+            Layout.columnSpan:	2
+            visible:			marginalMeansContrast.checked
+            name:				"Contrasts"
+            source:				"marginalMeansVars"
+            scaleFactor:		marginalMeansSD.value
+        }
+    }
 }
+
