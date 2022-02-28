@@ -2,6 +2,7 @@
 
 context("Classical GLM Unit Testing")
 #if you don't specify this, you get error saying "Error in (function (x) : attempt to apply non-function"
+#see https://stackoverflow.com/questions/50083521/error-in-xmethod-attempt-to-apply-non-function-in-testthat-test-when
 
 #### Test the binomial distribution with different links ####
 # Specifically, the model coefficients, based on the GLM book (Dunn and Smyth, 2018) (page 337)
