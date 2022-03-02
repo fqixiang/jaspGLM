@@ -566,17 +566,18 @@ glmClassical <- function(jaspResults, dataset = NULL, options, ...) {
   stdResid <- .glmStdResidCompute(model = model, residType = residType)
 
   # make plot
-  xBreaks <- pretty(stdResid) #note that the breaks and limits work for y axis too
-  xLimits <- range(xBreaks)
+  breaks <- pretty(stdResid)
+  limits <- range(breaks) #note that the breaks and limits work for both x and y axis
   thePlot <- ggplot2::ggplot(mapping = ggplot2::aes(sample = y),
                              data = data.frame(y = stdResid)) +
     ggplot2::stat_qq(shape = 1,
                      size = 4) +
-    ggplot2::stat_qq_line() +
     ggplot2::xlab(gettext("Theoretical Quantiles")) +
     ggplot2::ylab(gettext("Sample Quantiles")) +
-    ggplot2::scale_x_continuous(breaks = xBreaks, limits = xLimits) +
-    ggplot2::scale_y_continuous(breaks = xBreaks, limits = xLimits) +
+    ggplot2::scale_x_continuous(breaks = breaks) +
+    ggplot2::scale_y_continuous(breaks = breaks) +
+    ggplot2::coord_cartesian(xlim = limits, ylim = limits) +
+    ggplot2::stat_qq_line() +
     jaspGraphs::geom_rangeframe() +
     jaspGraphs::themeJaspRaw()
 
