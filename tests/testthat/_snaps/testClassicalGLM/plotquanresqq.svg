@@ -38,6 +38,7 @@
 <circle cx='420.09' cy='228.60' r='4.62' style='stroke-width: 0.71;' />
 <circle cx='461.92' cy='213.25' r='4.62' style='stroke-width: 0.71;' />
 <circle cx='533.09' cy='104.29' r='4.62' style='stroke-width: 0.71;' />
+<polyline points='127.81,492.90 533.09,139.28 ' style='stroke-width: 1.07; stroke-linecap: butt;' />
 <line x1='90.41' y1='510.14' x2='690.35' y2='510.14' style='stroke-width: 0.64; stroke-linecap: butt;' />
 <line x1='60.77' y1='488.21' x2='60.77' y2='42.64' style='stroke-width: 0.64; stroke-linecap: butt;' />
 <rect x='60.77' y='20.71' width='659.23' height='489.43' style='stroke-width: 0.00; stroke: none;' />
